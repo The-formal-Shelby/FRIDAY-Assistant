@@ -58,14 +58,11 @@ A Python-based personal voice assistant that helps you with daily tasks and inte
 </div>
 </div>
 <li><a href="#installation">Installation</a></li>
-<div class="container">
 <h2>Installation Guide</h2>
-<div class="install-steps">
-<pre><code>
 </ul>
 
 # Clone the repository
-git clone https://github.com/yourusername/friday-assistant.git
+git clone https://github.com/harshgupta2125/friday-assistant.git
 
 # Navigate to the project directory
 cd friday-assistant
