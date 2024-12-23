@@ -67,7 +67,16 @@ git clone https://github.com/harshgupta2125/friday-assistant.git
 # Navigate to the project directory
 cd friday-assistant
 
-# Install required packages
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# On Windows:
+venv\Scripts\activate
+# On Linux/Mac:
+source venv/bin/activate
+
+# Then install requirements
 pip install -r requirements.txt
 
 # Run Friday
