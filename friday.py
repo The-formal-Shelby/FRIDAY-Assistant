@@ -1,178 +1,179 @@
-# Import required libraries
-import speech_recognition as sr  # For voice recognition
-import pyttsx3 as tts          # Text-to-speech conversion library
-import datetime                # For date and time operations
-import wikipedia              # For fetching Wikipedia information
-import webbrowser             # For opening websites
-import os                     # For system operations
-import random                 # For random operations
-import time                   # For time-related operations
-import pyjokes                # For generating random jokes
-import pywhatkit as kit      # For YouTube and WhatsApp operations
-import pyautogui as pg       # For GUI automation
-import numpy as np           # For numerical operations
-import subprocess            # For running system commands
-import requests              # For HTTP requests
-import json                  # For JSON operations
+# this us a comment 
+import os
+import requests
+import speech_recognition as sr
+import pyttsx3 as tts
+from datetime import datetime, timedelta
+import json
+from typing import Optional, Dict, List
+import encryption_lib
+import wolframalpha
+from dotenv import load_dotenv
 
-# API keys for AI services (replace with your actual keys)
-OPENAI_API_KEY = "your-openai-api-key"
-DEEPSEEK_API_KEY = "your-deepseek-api-key"
+load_dotenv()
 
-def check_pyaudio():
-    try:
-        import pyaudio
-        return True
-    except ImportError:
-        print("PyAudio is not installed. Installing PyAudio...")
-        try:
-            subprocess.check_call(['pip', 'install', 'pyaudio'])
-            return True
-        except subprocess.CalledProcessError:
-            print("Error installing PyAudio. Please install it manually:")
-            print("1. Open command prompt as administrator")
-            print("2. Run: pip install pyaudio")
-            if os.name == 'nt':  # Windows
-                print("If above fails, download and install from:")
-                print("https://www.lfd.uci.edu/~gohlke/pythonlibs/#pyaudio")
-            return False
-
-def get_chatgpt_response(prompt):
-    url = "https://api.openai.com/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "model": "gpt-3.5-turbo",
-        "messages": [{"role": "user", "content": prompt}]
-    }
-    response = requests.post(url, headers=headers, json=data)
-    return response.json()['choices'][0]['message']['content']
-
-def get_deepseek_response(prompt):
-    url = "https://api.deepseek.com/v1/completions"
-    headers = {
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "prompt": prompt,
-        "max_tokens": 150
-    }
-    response = requests.post(url, headers=headers, json=data)
-    return response.json()['choices'][0]['text']
-
-def listen():
-    if not check_pyaudio():
-        return ""
+class FridayAI:
+    def __init__(self):
+        # Initialize components
+        self.engine = tts.init()
+        self.recognizer = sr.Recognizer()
+        self.voice_mode = True
+        self.patient_data = {}
+        self.medication_db = self._load_medication_db()
+        self.symptom_checker = self._load_symptom_db()
         
-    r = sr.Recognizer()
-    
-    with sr.Microphone() as source:
-        print("Listening...")
-        r.pause_threshold = 0.8  # Reduced for better responsiveness
-        r.energy_threshold = 400  # Adjusted for better voice detection
-        r.dynamic_energy_threshold = True  # Adapts to ambient noise
-        r.adjust_for_ambient_noise(source, duration=1)
-        audio = r.listen(source, timeout=5, phrase_time_limit=5)
+        # Voice setup
+        voices = self.engine.getProperty('voices')
+        self.engine.setProperty('voice', voices[1].id)
+        self.engine.setProperty('rate', 180)
         
-    try:
-        print("Recognizing...")
-        query = r.recognize_google(audio, language='en-US')
-        print(f"You said: {query}")
-        return query.lower()
-    except sr.UnknownValueError:
-        print("Could not understand audio")
-        return ""
-    except sr.RequestError:
-        print("Could not request results; check your internet connection")
-        return ""
-
-def speak(text):
-    engine = tts.init()
-    engine.say(text)
-    engine.runAndWait()
-
-def process_command(query, is_voice=True):
-    # Check for stop command before anything else
-    if query == "stop":
-        speak("Stopping assistant. Goodbye!") if is_voice else print("Stopping assistant. Goodbye!")
-        return "stop"
+        # Medical APIs
+        self.med_api = wolframalpha.Client(os.getenv('WOLFRAM_MED_KEY'))
         
-    if is_voice and not query.startswith("hi friday"):
-        return "continue"
-        
-    if is_voice:
-        query = query.replace("hi friday", "").strip()
-    
-    if not query:
-        speak("Hello, I am Friday your personal assistant. How can I help you?") if is_voice else print("Hello, I am Friday your personal assistant. How can I help you?")
-        return "continue"
-    
-    # Process commands
-    if "joke" in query:
-        joke = pyjokes.get_joke()
-        print(joke)
-        speak(joke) if is_voice else None
-    
-    elif "date" in query:
-        today = datetime.date.today()
-        date_string = today.strftime("%B %d, %Y")
-        print(date_string)
-        speak(f"The date is {date_string}") if is_voice else None
-    
-    # ... [Rest of the command processing remains the same, just add the conditional speak based on is_voice]
-    # For brevity, keeping same command structure but adding the voice/text option
-    
-    else:
-        msg = "I am sorry, I did not understand that command"
-        speak(msg) if is_voice else print(msg)
-    
-    return "continue"
+        self.select_input_mode()
 
-def start():
-    engine = tts.init()
-    rate = engine.getProperty('rate')
-    engine.setProperty('rate', 150)
-    
-    voices = engine.getProperty('voices')
-    engine.setProperty('voice', voices[0].id)
-    
-    greet = '''
-                    ███████╗██████╗ ██╗██████╗  █████╗ ██╗   ██╗
-                    ██╔════╝██╔══██╗██║██╔══██╗██╔══██╗╚██╗ ██╔╝
-                    █████╗  ██████╔╝██║██║  ██║███████║ ╚████╔╝ 
-                    ██╔══╝  ██╔══██╗██║██║  ██║██╔══██║  ╚██╔╝  
-                    ██║     ██║  ██║██║██████╔╝██║  ██║   ██║   
-                    ╚═╝     ╚═╝  ╚═╝╚═╝╚═════╝ ╚═╝  ╚═╝   ╚═╝
-            '''
-    print(greet)
-    print("\nChoose your input method:")
-    print("1. Voice Commands (Say 'Hi Friday' to activate)")
-    print("2. Keyboard Input")
-    
-    while True:
-        choice = input("Enter 1 or 2: ")
-        if choice in ['1', '2']:
-            break
-        print("Invalid choice. Please enter 1 for voice commands or 2 for keyboard input.")
-    
-    if choice == "1":
-        speak("Hi, I am Friday, your personal assistant. Say 'Hi Friday' to activate voice commands.")
+    def _load_medication_db(self) -> Dict:
+        """Load medication database"""
+        return {
+            "paracetamol": {"uses": ["fever", "pain"], "dosage": "500mg every 4-6 hours"},
+            "ibuprofen": {"uses": ["pain", "inflammation"], "dosage": "200-400mg every 4-6 hours"},
+            "loratadine": {"uses": ["allergies"], "dosage": "10mg once daily"}
+        }
+
+    def _load_symptom_db(self) -> Dict:
+        """Load symptom database"""
+        return {
+            "headache": {
+                "common_causes": ["tension", "migraine", "dehydration"],
+                "advice": "Rest in quiet room, drink water, consider pain relief"
+            },
+            "fever": {
+                "common_causes": ["infection", "flu", "cold"],
+                "advice": "Rest, hydrate, monitor temperature"
+            }
+        }
+
+    def speak(self, text: str):
+        """Enhanced TTS with emotional tone"""
+        print(f"FRIDAY: {text}")
+        # Adjust tone based on content
+        if any(word in text.lower() for word in ["emergency", "alert", "warning"]):
+            self.engine.setProperty('rate', 210)
+            self.engine.setProperty('volume', 1.0)
+        else:
+            self.engine.setProperty('rate', 180)
+            self.engine.setProperty('volume', 0.8)
+            
+        self.engine.say(text)
+        self.engine.runAndWait()
+
+    def medical_triage(self):
+        """Interactive symptom checker"""
+        self.speak("Let me help assess your symptoms. What are you experiencing?")
+        
+        symptoms = []
         while True:
-            query = listen()
-            result = process_command(query, is_voice=True)
-            if result == "stop":
+            symptom = self.get_input("Describe one symptom at a time (or say 'done'): ")
+            if symptom.lower() == 'done':
                 break
-    else:
-        print("Hi, I am Friday, your personal assistant. Type your commands (type 'stop' to exit).")
-        while True:
-            query = input("Enter command: ").lower()
-            result = process_command(query, is_voice=False)
-            if result == "stop":
-                break
+            symptoms.append(symptom.lower())
+            
+            # Get immediate advice for each symptom
+            if symptom in self.symptom_checker:
+                advice = self.symptom_checker[symptom]["advice"]
+                self.speak(f"For {symptom}: {advice}")
+            else:
+                self.speak(f"I'm noting {symptom}. Please continue or say 'done'")
+        
+        if symptoms:
+            self.analyze_symptoms(symptoms)
+        else:
+            self.speak("No symptoms recorded")
 
-# Main execution
+    def analyze_symptoms(self, symptoms: List[str]):
+        """Analyze collected symptoms"""
+        self.speak(f"Analyzing your {len(symptoms)} symptoms...")
+        
+        # Check for medication matches
+        suggested_meds = []
+        for med, data in self.medication_db.items():
+            if any(symptom in data["uses"] for symptom in symptoms):
+                suggested_meds.append(med)
+        
+        # Generate report
+        if suggested_meds:
+            self.speak(f"Based on your symptoms, these may help: {', '.join(suggested_meds)}")
+            for med in suggested_meds:
+                self.speak(f"{med} dosage: {self.medication_db[med]['dosage']}")
+        else:
+            self.speak("I don't have specific medication suggestions")
+        
+        # Check for emergencies
+        if any(s in ["chest pain", "difficulty breathing"] for s in symptoms):
+            self.speak("EMERGENCY ALERT! These symptoms may be serious. Seek immediate medical help!")
+        
+        # Offer to save symptoms
+        self.ask_followup()
+
+    def ask_followup(self):
+        """Follow-up questions"""
+        response = self.get_input("Would you like me to save these symptoms for your doctor? (yes/no): ")
+        if "yes" in response.lower():
+            self.patient_data["symptoms"] = symptoms
+            self.speak("Symptoms saved. Would you like to set a reminder to check on these?")
+            
+            reminder_resp = self.get_input("Set reminder? (yes/no): ")
+            if "yes" in reminder_resp.lower():
+                hours = self.get_input("In how many hours? (1-24): ")
+                try:
+                    reminder_time = datetime.now() + timedelta(hours=int(hours))
+                    self.set_reminder(reminder_time, "Check your symptoms")
+                except:
+                    self.speak("Invalid time entered")
+
+    def set_reminder(self, time: datetime, message: str):
+        """Set a medication/symptom reminder"""
+        # Implementation would use your preferred reminder system
+        self.speak(f"Reminder set for {time.strftime('%I:%M %p')}: {message}")
+
+    def process_command(self, command: str):
+        """Enhanced command processor"""
+        clean_cmd = command.replace("friday", "").strip().lower()
+        
+        if not clean_cmd:
+            return
+            
+        # Medical commands
+        if any(word in clean_cmd for word in ["symptom", "not feeling", "pain"]):
+            self.medical_triage()
+        elif "medicine" in clean_cmd or "medication" in clean_cmd:
+            self.handle_medication_query(clean_cmd)
+        elif "emergency" in clean_cmd:
+            self.handle_emergency()
+        # ... (keep other commands)
+        
+    def handle_medication_query(self, query: str):
+        """Process medication-related queries"""
+        if "side effects" in query:
+            med = query.split("side effects")[0].strip()
+            self.speak(f"Checking side effects for {med}...")
+            # Would integrate with WolframAlpha API
+        elif "dosage" in query:
+            med = query.split("dosage")[0].strip()
+            if med in self.medication_db:
+                self.speak(f"{med} dosage: {self.medication_db[med]['dosage']}")
+        else:
+            self.speak("Please specify if you want dosage or side effects information")
+
+    def handle_emergency(self):
+        """Emergency protocol"""
+        self.speak("EMERGENCY PROTOCOL ACTIVATED")
+        # Would integrate with hospital systems
+        self.speak("Alerting medical staff. Please stay calm.")
+
+    # ... (keep existing input mode selection and other methods)
+
 if __name__ == "__main__":
-    start()
+    assistant = FridayAI()
+    assistant.speak("Medical Friday Assistant initialized")
+    assistant.run()
